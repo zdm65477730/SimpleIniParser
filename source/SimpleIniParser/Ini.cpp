@@ -96,7 +96,7 @@ namespace simpleIniParser {
 
         u64 bytes_read = 0;
         std::string strBuf(size, '\0');
-        if (R_FAILED(fsFileRead(&src_handle, 0, const_cast<char*>(strBuf.data()), size, FsReadOption_None, &bytes_read)) || bytes_read != static_cast<u64>(size)) {
+        if (R_FAILED(fsFileRead(&src_handle, 0, const_cast<char*>(strBuf.data()), size, FsReadOption_None, &bytes_read))) {
 			fsFileClose(&src_handle);
             fsFsClose(&fs);
 			return nullptr;

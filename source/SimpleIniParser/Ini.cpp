@@ -15,11 +15,11 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-#include <fstream>
-#include <iostream>
 #include "Ini.hpp"
 #include "IniOption.hpp"
 #include "Trim.hpp"
+#include <sstream>
+#include <switch.h>
 
 using namespace std;
 
@@ -53,26 +53,60 @@ namespace simpleIniParser {
     }
 
     bool Ini::writeToFile(string path) {
-        ofstream file(path);
-        if (!file.is_open())
+        FsFileSystem fs;
+        if (R_FAILED(fsOpenSdCardFileSystem(&fs))) return false;
+
+        fsFsDeleteFile(&fs, path.c_str());
+        std::string content = build();
+        fsFsCreateFile(&fs, path.c_str(), content.size(), 0);
+
+        FsFile dest_handle;
+	    if (R_FAILED(fsFsOpenFile(&fs, path.c_str(), FsOpenMode_Write, &dest_handle))) {
+            fsFsClose(&fs);
             return false;
+        }
 
-        file << build();
+        if (R_FAILED(fsFileWrite(&dest_handle, 0, content.c_str(), content.size(), FsWriteOption_Flush))) {
+            fsFileClose(&dest_handle);
+            fsFsClose(&fs);
+            return false;
+        }
 
-        file.flush();
-        file.close();
-
+        fsFileClose(&dest_handle);
+        fsFsClose(&fs);
         return true;
     }
 
     Ini * Ini::parseFile(string path) {
-        ifstream file(path);
-        if (!file.is_open())
+        FsFileSystem fs;
+        if (R_FAILED(fsOpenSdCardFileSystem(&fs))) return nullptr;
+
+        FsFile src_handle;
+        if (R_FAILED(fsFsOpenFile(&fs, path.c_str(), FsOpenMode_Read, &src_handle))) {
+            fsFsClose(&fs);
             return nullptr;
+        }
+
+        s64 size = 0;
+        if (R_FAILED(fsFileGetSize(&src_handle, &size))) {
+            fsFileClose(&src_handle);
+            fsFsClose(&fs);
+            return nullptr;
+        }
+
+        u64 bytes_read = 0;
+        std::string strBuf(size, '\0');
+        if (R_FAILED(fsFileRead(&src_handle, 0, const_cast<char*>(strBuf.data()), size, FsReadOption_None, &bytes_read)) || bytes_read != static_cast<u64>(size)) {
+			fsFileClose(&src_handle);
+            fsFsClose(&fs);
+			return nullptr;
+		}
+
+        std::stringstream ss(strBuf);
 
         Ini * ini = new Ini();
         string line;
-        while (getline(file, line)) {
+        while (std::getline(ss, line)) {
             trim(line);
 
             if (line.size() == 0)
@@ -90,7 +124,9 @@ namespace simpleIniParser {
             }
         }
 
-        file.close();
+        //file.close();
+        fsFileClose(&src_handle);
+        fsFsClose(&fs);
 
         return ini;
     }

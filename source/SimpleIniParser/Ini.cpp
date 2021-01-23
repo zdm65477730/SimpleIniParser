@@ -19,7 +19,6 @@
 #include "IniOption.hpp"
 #include "Trim.hpp"
 #include <sstream>
-#include <switch.h>
 
 using namespace std;
 
@@ -52,45 +51,30 @@ namespace simpleIniParser {
         return (*it);
     }
 
-    bool Ini::writeToFile(string path) {
-        FsFileSystem fs;
-        if (R_FAILED(fsOpenSdCardFileSystem(&fs))) return false;
-
-        fsFsDeleteFile(&fs, path.c_str());
+    bool Ini::writeToFile(FsFileSystem *fs, string path) {
+        //fsFsDeleteFile(fs, path.c_str());
         std::string content = build();
-        fsFsCreateFile(&fs, path.c_str(), content.size(), 0);
+        //fsFsCreateFile(fs, path.c_str(), content.size(), 0);
 
         FsFile dest_handle;
-	    if (R_FAILED(fsFsOpenFile(&fs, path.c_str(), FsOpenMode_Write, &dest_handle))) {
-            fsFsClose(&fs);
-            return false;
-        }
+	    if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Write, &dest_handle))) return false;
 
         if (R_FAILED(fsFileWrite(&dest_handle, 0, content.c_str(), content.size(), FsWriteOption_Flush))) {
             fsFileClose(&dest_handle);
-            fsFsClose(&fs);
             return false;
         }
 
         fsFileClose(&dest_handle);
-        fsFsClose(&fs);
         return true;
     }
 
-    Ini * Ini::parseFile(string path) {
-        FsFileSystem fs;
-        if (R_FAILED(fsOpenSdCardFileSystem(&fs))) return nullptr;
-
+    Ini * Ini::parseFile(FsFileSystem *fs, string path) {
         FsFile src_handle;
-        if (R_FAILED(fsFsOpenFile(&fs, path.c_str(), FsOpenMode_Read, &src_handle))) {
-            fsFsClose(&fs);
-            return nullptr;
-        }
+        if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Read, &src_handle))) return nullptr;
 
         s64 size = 0;
         if (R_FAILED(fsFileGetSize(&src_handle, &size))) {
             fsFileClose(&src_handle);
-            fsFsClose(&fs);
             return nullptr;
         }
 
@@ -98,7 +82,6 @@ namespace simpleIniParser {
         std::string strBuf(size, '\0');
         if (R_FAILED(fsFileRead(&src_handle, 0, const_cast<char*>(strBuf.data()), size, FsReadOption_None, &bytes_read))) {
 			fsFileClose(&src_handle);
-            fsFsClose(&fs);
 			return nullptr;
 		}
 
@@ -126,7 +109,6 @@ namespace simpleIniParser {
 
         //file.close();
         fsFileClose(&src_handle);
-        fsFsClose(&fs);
 
         return ini;
     }

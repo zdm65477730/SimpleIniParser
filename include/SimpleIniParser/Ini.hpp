@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <string>
+#include <switch.h>
 
 #include "IniSection.hpp"
 
@@ -30,7 +31,7 @@ namespace simpleIniParser {
             ~Ini();
             std::string build();
             IniSection * findSection(std::string name);
-            bool writeToFile(std::string path);
-            static Ini * parseFile(std::string path);
+            bool writeToFile(FsFileSystem *fs, std::string path);
+            static Ini * parseFile(FsFileSystem *fs, std::string path);
     };
 }
